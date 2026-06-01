@@ -1,6 +1,6 @@
 import pdfMake from "pdfmake/build/pdfmake"
 import * as pdfFonts from "pdfmake/build/vfs_fonts"
-import { TDocumentDefinitions, Content, StyleDictionary, TableCell, ContentImage, ContentCanvas, ContentStack } from "pdfmake/interfaces"
+import { TDocumentDefinitions, Content, StyleDictionary, TableCell, ContentImage, ContentStack } from "pdfmake/interfaces"
 import { Estudiante } from "../services/estudianteService"
 import { ModuloNota } from "../services/notaService"
 
@@ -96,7 +96,7 @@ function cajaMetrica(label: string, value: string, bgColor = WHITE, textColor = 
 export function generarInformePDF(
   estudiante: Estudiante,
   modulos: ModuloNota[],
-  foto: string | null
+  fotoBase64: string | null
 ) {
   const pasados = modulos.filter(m => m.nota !== null && m.nota >= 3)
   const conNota = modulos.filter(m => m.nota !== null)
@@ -140,21 +140,21 @@ export function generarInformePDF(
   ]
 
   // ── Bloque de info + foto del estudiante ──────────────────────────────────
-  const fotoContent: ContentImage | ContentStack = foto
-    ? ({
-      image: foto,
-      width: 64,
-      height: 64,
-    } as ContentImage)
-    : ({
-      stack: [
-        {
-          canvas: [
-            { type: "rect", x: 0, y: 0, w: 64, h: 64, color: SILVER },
-          ],
-        } as ContentCanvas,
-      ],
-    } as ContentStack)
+  const fotoContent: ContentImage | ContentStack = fotoBase64
+    ? {
+        image: fotoBase64,
+        width: 64,
+        height: 64,
+      }
+    : {
+        stack: [
+          {
+            canvas: [
+              { type: "rect", x: 0, y: 0, w: 64, h: 64, color: SILVER },
+            ],
+          },
+        ],
+      }
 
   const cajaEstudiante: Content = {
     table: {

@@ -26,6 +26,21 @@ export interface PagoReciente {
   metodo: string
 }
 
+export interface PagoDetallado {
+  fecha: string
+  moduloNombre: string
+  moduloCodigo: string
+  precio: number
+  descuento: number
+  precioFinal: number
+  montoPagado: number
+  saldoActual: number
+  saldoPagado: number
+  metodo: string
+  intento: number
+  alDia: boolean
+}
+
 
 export async function obtenerCarteraEstudiante(estudianteId: number): Promise<CarteraEstudiante> {
 
@@ -156,4 +171,51 @@ export async function obtenerPagosRecientes(estudianteId: number): Promise<PagoR
     metodo: r.metodo_pago
   }))
 
+}
+
+
+export async function obtenerPagosDetallados(estudianteId: number): Promise<PagoDetallado[]> {
+  const conn = await getConnection()
+  const rows = await conn.select<any[]>(`
+    SELECT
+      p.fecha_pago,
+      p.monto_pagado,
+      p.metodo_pago,
+      m.nombre AS modulo_nombre,
+      m.codigo AS modulo_codigo,
+      m.precio,
+      i.descuento,
+      i.intento,
+      COALESCE((
+        SELECT SUM(p2.monto_pagado)
+        FROM pagos p2
+        WHERE p2.inscripcion_id = i.id AND p2.estado = 'CONFIRMADO'
+      ), 0) AS total_pagado_modulo
+    FROM pagos p
+    JOIN inscripciones i ON p.inscripcion_id = i.id
+    JOIN modulos m ON i.modulo_id = m.id
+    WHERE i.estudiante_id = ?
+    AND p.estado = 'CONFIRMADO'
+    ORDER BY p.fecha_pago ASC, p.id ASC
+  `, [estudianteId])
+
+  return rows.map(r => {
+    const precioFinal = r.precio - (r.precio * r.descuento / 100)
+    const saldoActual = Math.max(0, precioFinal - r.total_pagado_modulo)
+    const alDia = saldoActual === 0
+    return {
+      fecha: r.fecha_pago,
+      moduloNombre: r.modulo_nombre,
+      moduloCodigo: r.modulo_codigo,
+      precio: r.precio,
+      descuento: r.descuento,
+      precioFinal,
+      montoPagado: r.monto_pagado,
+      saldoActual,
+      saldoPagado: r.total_pagado_modulo,
+      metodo: r.metodo_pago,
+      intento: r.intento,
+      alDia,
+    }
+  })
 }

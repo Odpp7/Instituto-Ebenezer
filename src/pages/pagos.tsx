@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PlusCircle, UserSearch, Clock, CheckCircle2, Tag, Wallet, FileDown } from "lucide-react";
 import { buscarEstudiantes, Estudiante } from "../services/estudianteService";
 import { obtenerCarteraEstudiante, CarteraEstudiante, obtenerPagosRecientes, PagoReciente } from "../services/pagoService";
+import { obtenerPagosDetallados, PagoDetallado } from "../services/pagoService";
 import { generarReciboCarteraPDF } from "../utils/reciboCarteraPDF";
 import { Toast } from 'primereact/toast';
 import ModalPago from "../components/modals/ModalPagos";
@@ -15,6 +16,7 @@ export default function Pagos() {
   const [estudiante, setEstudiante] = useState<Estudiante | null>(null);
   const [cartera, setCartera] = useState<CarteraEstudiante | null>(null);
   const [pagosRecientes, setPagosRecientes] = useState<PagoReciente[]>([]);
+  const [pagosDetallados, setPagosDetallados] = useState<PagoDetallado[]>([]);
   const toast = useRef<Toast>(null);
 
 
@@ -49,6 +51,8 @@ export default function Pagos() {
     localStorage.setItem("estudianteSeleccionado", JSON.stringify(est));
 
     try {
+      const pd = await obtenerPagosDetallados(est.id);
+      setPagosDetallados(pd);
       const c = await obtenerCarteraEstudiante(est.id);
       setCartera(c);
       await cargarPagosRecientes(est.id);
@@ -72,6 +76,8 @@ export default function Pagos() {
   async function handlePagoRegistrado() {
     setModalPago(false);
     if (!estudiante) return;
+    const pd = await obtenerPagosDetallados(estudiante.id);
+    setPagosDetallados(pd);
     const c = await obtenerCarteraEstudiante(estudiante.id);
     setCartera(c);
     await cargarPagosRecientes(estudiante.id);
@@ -79,7 +85,7 @@ export default function Pagos() {
 
   async function handleGenerarRecibo() {
     try {
-      await generarReciboCarteraPDF(estudiante!, cartera!);
+      await generarReciboCarteraPDF(estudiante!, cartera!, pagosDetallados);
 
       toast.current?.show({
         severity: "success",

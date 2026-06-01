@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Instituto-Ebenezer",
-  "version": "0.1.8",
-  "identifier": "Instituto-Ebenezer",
+  "version": "0.1.1",
+  "identifier": "com.instituto.eben-ezer.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -20,7 +20,11 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
     }
   },
   "bundle": {
@@ -38,10 +42,13 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/Odpp7/uparsistem/releases/latest/download/latest.json"
+        "https://github.com/Odpp7/Instituto-Ebenezer/releases/latest/download/latest.json"
       ],
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk3NkY2QzE2MkY4RjU0MTUKUldRVlZJOHZGbXh2bHk0YTB0UUxjT1E0cTU3TkUrN0UwbUJQMFNnV1BBczlIcjU4WklEb2lqUGIK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYyRkQzRkQ1NkM2Q0MzNgpSV1Eyek1aVy9kTXZEMUFFTkQyWTZVSEFxZE8vYmhrN0kvRFc3YTg3SHRKYXdNN3VzQ1dRWm9rOAo="
+    },
+    "fs": {
+      "requireLiteralLeadingDot": false
     }
   }
 }

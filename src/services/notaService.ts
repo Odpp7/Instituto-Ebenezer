@@ -94,11 +94,6 @@ export async function recursarModulo(estudianteId: number, moduloId: number) {
 
   const intentoActual = result[0]?.max_intento || 0
 
-  if (intentoActual >= 2) {
-    alert("Este módulo ya fue recursado")
-    return
-  }
-
   await conn.execute(`
     UPDATE inscripciones
     SET estado = 'REPROBADO'

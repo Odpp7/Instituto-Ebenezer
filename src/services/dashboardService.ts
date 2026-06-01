@@ -21,33 +21,40 @@ export interface ResumenCarteraGeneral {
   totalEstudiantesConDeuda: number
 }
 
-export async function obtenerResumenDashboard() {
-    const conn = await getConnection();
+export async function obtenerResumenDashboard(mes: number, anio: number) {
+  const conn = await getConnection();
 
-    const [totalEstudiantes] = await conn.select<{ total: number }[]>(
-        `SELECT COUNT(*) as total FROM estudiantes WHERE activo = 1`
-    );
+  const mesStr = String(mes).padStart(2, "0");
+  const anioStr = String(anio);
 
-    const [totalPagos] = await conn.select<{ total: number }[]>(
-        `SELECT IFNULL(SUM(monto_pagado),0) as total FROM pagos WHERE estado = 'CONFIRMADO'`
-    );
+  const [totalEstudiantes] = await conn.select<{ total: number }[]>(
+    `SELECT COUNT(*) as total FROM estudiantes WHERE activo = 1`
+  );
 
-    const [pendientes] = await conn.select<{ total: number }[]>(
-        `SELECT COUNT(*) as total
+  const [totalPagos] = await conn.select<{ total: number }[]>(
+    `SELECT IFNULL(SUM(monto_pagado), 0) as total 
+     FROM pagos 
+     WHERE estado = 'CONFIRMADO'
+       AND strftime('%Y', fecha_pago) = '${anioStr}'
+       AND strftime('%m', fecha_pago) = '${mesStr}'`
+  );
+
+  const [pendientes] = await conn.select<{ total: number }[]>(
+    `SELECT COUNT(*) as total
      FROM inscripciones i
      LEFT JOIN pagos p ON i.id = p.inscripcion_id
      WHERE p.id IS NULL`
-    );
+  );
 
-    return {
-        totalEstudiantes: totalEstudiantes.total,
-        totalPagos: totalPagos.total,
-        pendientes: pendientes.total
-    };
+  return {
+    totalEstudiantes: totalEstudiantes.total,
+    totalPagos: totalPagos.total,
+    pendientes: pendientes.total,
+  };
 }
 
-
-export async function obtenerPagosPorMes() {
+// ✅ Ahora recibe anio para filtrar el gráfico
+export async function obtenerPagosPorMes(anio: number) {
   const conn = await getConnection();
 
   return await conn.select<any[]>(`
@@ -56,11 +63,11 @@ export async function obtenerPagosPorMes() {
       SUM(monto_pagado) as total
     FROM pagos
     WHERE estado = 'CONFIRMADO'
+      AND strftime('%Y', fecha_pago) = '${String(anio)}'
     GROUP BY mes
     ORDER BY mes
   `);
 }
-
 
 export async function obtenerNotificaciones() {
   const conn = await getConnection();
@@ -80,10 +87,10 @@ export async function obtenerNotificaciones() {
     LIMIT 5
   `);
 }
- 
+
 export async function obtenerCarteraGeneral(): Promise<ResumenCarteraGeneral> {
-  const conn = await getConnection()
- 
+  const conn = await getConnection();
+
   const rows = await conn.select<any[]>(`
     SELECT
       e.id                        AS estudiante_id,
@@ -112,11 +119,11 @@ export async function obtenerCarteraGeneral(): Promise<ResumenCarteraGeneral> {
       m.codigo, m.nombre, m.precio, i.descuento
     HAVING (m.precio - m.precio * (i.descuento / 100.0) - COALESCE(SUM(p.monto_pagado), 0)) > 0
     ORDER BY e.nombre_completo, m.nombre
-  `)
- 
+  `);
+
   const lineas: LineaCarteraGeneral[] = rows.map(r => {
-    const precioFinal = r.precio - r.precio * (r.descuento / 100)
-    const saldo = Math.max(0, precioFinal - r.pagado)
+    const precioFinal = r.precio - r.precio * (r.descuento / 100);
+    const saldo = Math.max(0, precioFinal - r.pagado);
     return {
       estudianteId:     r.estudiante_id,
       nombreEstudiante: r.nombre_estudiante,
@@ -130,17 +137,15 @@ export async function obtenerCarteraGeneral(): Promise<ResumenCarteraGeneral> {
       totalPagado:      r.pagado,
       saldoPendiente:   saldo,
       ultimoPago:       r.ultimo_pago ?? null,
-    }
-  })
- 
-  const estudiantesConDeuda = new Set(lineas.map(l => l.estudianteId))
-  const totalCartera = lineas.reduce((s, l) => s + l.saldoPendiente, 0)
- 
+    };
+  });
+
+  const estudiantesConDeuda = new Set(lineas.map(l => l.estudianteId));
+  const totalCartera = lineas.reduce((s, l) => s + l.saldoPendiente, 0);
+
   return {
     lineas,
     totalCartera,
     totalEstudiantesConDeuda: estudiantesConDeuda.size,
-  }
+  };
 }
-
-

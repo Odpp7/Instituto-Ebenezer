@@ -11,6 +11,9 @@
     "sql:allow-load",
     "sql:allow-select",
     "sql:allow-execute",
-    "updater:default"
+    "updater:default",
+    "fs:allow-appdata-write",
+    "fs:allow-appdata-write-recursive",
+    "fs:allow-mkdir"
   ]
 }

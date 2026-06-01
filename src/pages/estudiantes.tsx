@@ -17,7 +17,7 @@ export default function Estudiantes() {
   const [estudianteSeleccionado, setEstudiante] = useState<{ id: number; name: string; meta: string } | null>(null);
   const [estudianteEditando, setEstudianteEditando] = useState<Estudiante | null>(null);
 
-  const ESTUDIANTES_POR_PAGINA = 10;
+  const ESTUDIANTES_POR_PAGINA = 8;
 
   async function cargarEstudiantes() {
     try {

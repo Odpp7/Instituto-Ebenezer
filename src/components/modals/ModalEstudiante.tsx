@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, User, Fingerprint, Mail, Phone, Save, Camera, FileText } from "lucide-react";
 import { crearEstudiante } from "../../services/estudianteService";
 import { validarEstudiante } from "../../utils/estudianteValidacion";
+import { guardarImagen, obtenerUrlImagen } from "../../utils/fotoUtils";
 import "../../styles/modalEstudiante.css";
 
 interface Props {
@@ -9,22 +10,30 @@ interface Props {
   onGuardado: () => void;
 }
 
-function comprimirImagen(file: File, maxSize: number, calidad: number): Promise<string> {
+async function comprimirImagenABlob(file: File, maxSize: number, calidad: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
+
     img.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = maxSize;
       canvas.height = maxSize;
+
       const ctx = canvas.getContext("2d")!;
       const min = Math.min(img.width, img.height);
       const sx = (img.width - min) / 2;
       const sy = (img.height - min) / 2;
+
       ctx.drawImage(img, sx, sy, min, min, 0, 0, maxSize, maxSize);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", calidad));
+
+      canvas.toBlob((blob) => {
+        if (!blob) return reject("Error al comprimir");
+        resolve(blob);
+      }, "image/jpeg", calidad);
     };
+
     img.onerror = reject;
     img.src = url;
   });
@@ -37,21 +46,43 @@ export default function ModalEstudiante({ onClose, onGuardado }: Props) {
   const [telefono, setTelefono] = useState("");
   const [fotoPerfil, setFotoPerfil]       = useState<string | null>(null);
   const [fotoDocumento, setFotoDocumento] = useState<string | null>(null);
+  const [urlPerfil, setUrlPerfil] = useState<string | null>(null);
+  const [urlDocumento, setUrlDocumento] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refPerfil    = useRef<HTMLInputElement>(null);
   const refDocumento = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (fotoPerfil) {
+      obtenerUrlImagen(fotoPerfil).then(setUrlPerfil);
+    } else {
+      setUrlPerfil(null);
+    }
+  }, [fotoPerfil]);
+
+  useEffect(() => {
+    if (fotoDocumento) {
+      obtenerUrlImagen(fotoDocumento).then(setUrlDocumento);
+    } else {
+      setUrlDocumento(null);
+    }
+  }, [fotoDocumento]);
+
   async function handleFotoPerfil(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setFotoPerfil(await comprimirImagen(file, 200, 0.7));
+    const blob = await comprimirImagenABlob(file, 200, 0.7);
+    const path = await guardarImagen(blob, `perfil_${Date.now()}.jpg`);
+    setFotoPerfil(path);
   }
 
   async function handleFotoDocumento(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setFotoDocumento(await comprimirImagen(file, 600, 0.75));
+    const blob = await comprimirImagenABlob(file, 600, 0.75);
+    const path = await guardarImagen(blob, `documento_${Date.now()}.jpg`);
+    setFotoDocumento(path);
   }
 
   async function handleGuardar() {
@@ -88,7 +119,7 @@ export default function ModalEstudiante({ onClose, onGuardado }: Props) {
             <div className="avatar-upload">
               <div className="avatar-preview">
                 <div className="avatar-circle-lg">
-                  {fotoPerfil ? <img src={fotoPerfil} alt="perfil" className="avatar-img" /> : <User size={36} />}
+                  {urlPerfil ? <img src={urlPerfil} alt="perfil" className="avatar-img" /> : <User size={36} />}
                 </div>
                 <button className="avatar-camera-btn" type="button" onClick={() => refPerfil.current?.click()}>
                   <Camera size={13} />
@@ -105,7 +136,7 @@ export default function ModalEstudiante({ onClose, onGuardado }: Props) {
             <div className="avatar-upload">
               <div className="avatar-preview">
                 <div className="avatar-circle-lg avatar-doc">
-                  {fotoDocumento ? <img src={fotoDocumento} alt="documento" className="avatar-img" /> : <FileText size={30} />}
+                  {urlDocumento ? <img src={urlDocumento} alt="documento" className="avatar-img" /> : <FileText size={30} />}
                 </div>
                 <button className="avatar-camera-btn" type="button" onClick={() => refDocumento.current?.click()}>
                   <Camera size={13} />

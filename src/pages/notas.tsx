@@ -8,6 +8,7 @@ import { obtenerModulosEstudiante, guardarNota, ModuloNota, recursarModulo, obte
 import { validarNota } from "../utils/notaValidacion";
 import { generarInformePDF } from "../utils/notaPDF";
 import { Toast } from "primereact/toast";
+import { imagenABase64 } from "../utils/fotoUtils";
 import "../styles/notas.css";
 
 function initials(name: string) {
@@ -22,6 +23,7 @@ export default function Notas() {
     const [estudiante, setEstudiante] = useState<Estudiante | null>(null);
     const [modulos, setModulos] = useState<ModuloNota[]>([]);
     const [drafts, setDrafts] = useState<Record<number, string>>({});
+    const [recursados, setRecursados] = useState<Set<number>>(new Set());
     const toast = useRef<Toast>(null);
 
 
@@ -132,29 +134,33 @@ export default function Notas() {
             await recursarModulo(estudiante.id, moduloId);
             const data = await obtenerModulosEstudiante(estudiante.id);
             setModulos(data);
+            setRecursados(prev => new Set(prev).add(moduloId));
         } catch (error) {
             console.error("Error recursando módulo", error);
         }
     }
 
     async function handleGenerarInforme() {
-        const foto = await obtenerFotoEstudiante(estudiante!.id)
+    try {
+        const nombreFoto = await obtenerFotoEstudiante(estudiante!.id);
+        let fotoBase64: string | null = null;
+
+        if (nombreFoto) {
         try {
-            await generarInformePDF(estudiante!, modulos, foto)
-            toast.current?.show({
-                severity: "success",
-                summary: "Informe de notas Generado",
-                detail: "El informe fue guardado en la carpeta Descargas.",
-                life: 3000,
-            })
-        } catch (error) {
-            toast.current?.show({
-                severity: "error",
-                summary: "Error al generar",
-                detail: "No se pudo generar el informe.",
-                life: 3000,
-            });
+            fotoBase64 = await imagenABase64(nombreFoto); // ← nombre, no ruta
+        } catch (e) {
+            console.warn("No se pudo cargar la foto, se omitirá:", e);
+            // fotoBase64 queda null → el PDF se genera sin foto
         }
+        }
+
+        await generarInformePDF(estudiante!, modulos, fotoBase64);
+        toast.current?.show({ severity: "success", summary: "Informe generado en la carpeta Descargas", life: 3000 });
+
+    } catch (error) {
+        console.error(error);
+        toast.current?.show({ severity: "error", summary: "Error al generar", life: 3000 });
+    }
     }
 
 
@@ -284,96 +290,106 @@ export default function Notas() {
                                         <th className="right">Acción</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {modulos.map((m) => {
-                                        const passed = m.nota !== null && m.nota >= 3
-                                        const failed = m.nota !== null && m.nota < 3
-                                        const draft = drafts[m.inscripcionId] ?? ""
-                                        return (
-                                            <tr key={m.inscripcionId} className={failed ? "row-failed" : ""}>
+                                    <tbody>
+                                        {modulos.map((m) => {
+                                            const passed = m.nota !== null && m.nota >= 3
+                                            const failed = m.nota !== null && m.nota < 3
+                                            const draft = drafts[m.inscripcionId] ?? ""
 
-                                                <td>
-                                                    <p className="td-module-name">{m.moduloNombre}</p>
-                                                    <p className="td-module-code">{m.creditos} Créditos • Intento {m.intento}</p>
-                                                </td>
+                                            const maxIntento = Math.max(
+                                                ...modulos
+                                                    .filter(x => x.moduloId === m.moduloId)
+                                                    .map(x => x.intento)
+                                            )
+                                            const esUltimoIntento = m.intento === maxIntento
 
-                                                <td className="td-date"> {m.fechaInscripcion} </td>
+                                            return (
+                                                <tr key={m.inscripcionId} className={failed ? "row-failed" : ""}>
 
-                                                <td>
-                                                    {m.bloqueada ? (
-                                                        <div className="score-locked-wrap">
-                                                            <span className={`score-badge ${passed ? "score-pass" : "score-fail"}`}>
-                                                                {m.nota}
+                                                    <td>
+                                                        <p className="td-module-name">{m.moduloNombre}</p>
+                                                        <p className="td-module-code">{m.creditos} Créditos • Intento {m.intento}</p>
+                                                    </td>
+
+                                                    <td className="td-date"> {m.fechaInscripcion} </td>
+
+                                                    <td>
+                                                        {m.bloqueada ? (
+                                                            <div className="score-locked-wrap">
+                                                                <span className={`score-badge ${passed ? "score-pass" : "score-fail"}`}>
+                                                                    {m.nota}
+                                                                </span>
+                                                                <span className="score-max">/ 5</span>
+                                                                <Lock size={12} className="score-lock-icon" />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="score-input-wrap">
+                                                                <input
+                                                                    className="score-input"
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={5}
+                                                                    step={0.1}
+                                                                    placeholder="1.0–5.0"
+                                                                    value={draft}
+                                                                    onChange={e =>
+                                                                        setDrafts(prev => ({
+                                                                            ...prev,
+                                                                            [m.inscripcionId]: e.target.value
+                                                                        }))
+                                                                    }
+                                                                />
+                                                                <span className="score-max">/ 5</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+
+                                                    <td>
+                                                        {passed &&
+                                                            <span className="status-pass">
+                                                                <CheckCircle size={15} /> Aprobado
                                                             </span>
-                                                            <span className="score-max">/ 5</span>
-                                                            <Lock size={12} className="score-lock-icon" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="score-input-wrap">
-                                                            <input
-                                                                className="score-input"
-                                                                type="number"
-                                                                min={1}
-                                                                max={5}
-                                                                step={0.1}
-                                                                placeholder="1.0–5.0"
-                                                                value={draft}
-                                                                onChange={e =>
-                                                                    setDrafts(prev => ({
-                                                                        ...prev,
-                                                                        [m.inscripcionId]: e.target.value
-                                                                    }))
-                                                                }
-                                                            />
-                                                            <span className="score-max">/ 5</span>
-                                                        </div>
-                                                    )}
-                                                </td>
+                                                        }
+                                                        {failed &&
+                                                            <span className="status-fail">
+                                                                <XCircle size={15} /> Reprobado
+                                                            </span>
+                                                        }
+                                                        {m.nota === null &&
+                                                            <span className="status-pending">
+                                                                Sin nota
+                                                            </span>
+                                                        }
+                                                    </td>
 
-                                                <td>
-                                                    {passed &&
-                                                        <span className="status-pass">
-                                                            <CheckCircle size={15} /> Aprobado
-                                                        </span>
-                                                    }
-                                                    {failed &&
-                                                        <span className="status-fail">
-                                                            <XCircle size={15} /> Reprobado
-                                                        </span>
-                                                    }
-                                                    {m.nota === null &&
-                                                        <span className="status-pending">
-                                                            Sin nota
-                                                        </span>
-                                                    }
-                                                </td>
+                                                    <td className="td-right">
+                                                        {m.bloqueada ? (
+                                                            failed && esUltimoIntento
+                                                                ? (
+                                                                    <button
+                                                                        className="btn-retake"
+                                                                        disabled={recursados.has(m.moduloId)}
+                                                                        onClick={() => handleRecursar(m.moduloId)}
+                                                                    >
+                                                                        <RefreshCw size={13} /> Recursar
+                                                                    </button>
+                                                                )
+                                                                : <span className="td-dash">—</span>
+                                                        ) : (
+                                                            <button
+                                                                className="btn-save-score"
+                                                                disabled={draft.trim() === ""}
+                                                                onClick={() => saveNota(m.inscripcionId)}
+                                                            >
+                                                                <Save size={13} /> Guardar nota
+                                                            </button>
+                                                        )}
+                                                    </td>
 
-
-
-                                                <td className="td-right">
-                                                    {m.bloqueada ? (
-                                                        failed
-                                                            ? (
-                                                                <button className="btn-retake" onClick={() => handleRecursar(m.moduloId)}>
-                                                                    <RefreshCw size={13} /> Recursar
-                                                                </button>
-                                                            )
-                                                            : <span className="td-dash">—</span>
-                                                    ) : (
-                                                        <button
-                                                            className="btn-save-score"
-                                                            disabled={draft.trim() === ""}
-                                                            onClick={() => saveNota(m.inscripcionId)}
-                                                        >
-                                                            <Save size={13} /> Guardar nota
-                                                        </button>
-                                                    )}
-                                                </td>
-
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
                             </table>
                         </div>
                     </div>

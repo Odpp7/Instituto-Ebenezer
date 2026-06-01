@@ -39,10 +39,6 @@ export function validarModulo(data: ModuloForm): string | null {
     return "El nombre del módulo contiene espacios consecutivos"
   }
 
-  if (!data.duracion.trim()) {
-    return "La duración es obligatoria"
-  }
-
   if (!data.programa_id) {
     return "Debes seleccionar un programa académico"
   }
@@ -77,10 +73,6 @@ export function validarModulo(data: ModuloForm): string | null {
 
   if (data.horas_independiente > 2000) {
     return "Las horas de trabajo independiente son demasiado altas"
-  }
-
-  if (data.horas_aula === 0 && data.horas_independiente === 0) {
-    return "El módulo debe tener al menos horas en aula o horas independientes"
   }
 
   if (data.precio <= 0) {
