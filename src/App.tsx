@@ -6,6 +6,7 @@ import Profesores from "./pages/profesores";
 import Dashboard from "./pages/dashboard";
 import Pagos from "./pages/pagos";
 import Notas from "./pages/notas";
+import "./styles/modalConfirmar.css";
 
 export default function App() {
   return (

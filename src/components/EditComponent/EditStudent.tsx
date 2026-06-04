@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Save, X, User, Camera, FileText, Upload } from "lucide-react";
-import { guardarImagen } from "../../utils/fotoUtils";
-import { obtenerUrlImagen } from "../../utils/fotoUtils";
+import { guardarImagen, obtenerUrlImagen } from "../../utils/fotoUtils";
 import { Estudiante, actualizarEstudiante, obtenerFotosEstudiante, guardarFotosEstudiante } from "../../services/estudianteService";
 import "../../styles/editStudent.css";
 
@@ -52,7 +51,6 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
   const [modalFoto, setModalFoto]   = useState<"perfil" | "documento" | null>(null);
   const [urlPerfil, setUrlPerfil]   = useState<string | null>(null);
   const [urlDoc, setUrlDoc]         = useState<string | null>(null);
-  // Track whether the user changed each photo in this session
   const [perfilModificado, setPerfilModificado] = useState(false);
   const [docModificado, setDocModificado]       = useState(false);
 
@@ -101,21 +99,24 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
 
   async function handleFotoPerfil(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !estudiante) return;
     const blob = await comprimirImagenABlob(file);
-    const path = await guardarImagen(blob, `perfil_${Date.now()}.jpg`);
+    // Nombre fijo por ID — sobreescribe el archivo anterior, sin archivos huérfanos
+    const path = await guardarImagen(blob, `perfil_${estudiante.id}.jpg`);
     setFotoPerfil(path);
+    setUrlPerfil(URL.createObjectURL(blob));
     setPerfilModificado(true);
-    // Reset input so the same file can be re-selected if needed
     e.target.value = "";
   }
 
   async function handleFotoDoc(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !estudiante) return;
     const blob = await comprimirImagenABlob(file);
-    const path = await guardarImagen(blob, `doc_${Date.now()}.jpg`);
+    // Nombre fijo por ID — sobreescribe el archivo anterior, sin archivos huérfanos
+    const path = await guardarImagen(blob, `doc_${estudiante.id}.jpg`);
     setFotoDoc(path);
+    setUrlDoc(URL.createObjectURL(blob));
     setDocModificado(true);
     e.target.value = "";
   }
@@ -136,9 +137,6 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
         telefono: telefono.trim() || null,
       });
 
-      // Only send photos that were actually changed in this session.
-      // guardarFotosEstudiante uses COALESCE, so passing null won't overwrite
-      // existing photos, but we avoid unnecessary writes altogether.
       const fotosActualizadas: { foto_perfil?: string; foto_documento?: string } = {};
       if (perfilModificado && fotoPerfil) fotosActualizadas.foto_perfil = fotoPerfil;
       if (docModificado && fotoDoc)       fotosActualizadas.foto_documento = fotoDoc;
@@ -201,14 +199,13 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
           <button className="edit-panel-close" onClick={onCancelar}><X size={18} /></button>
         </div>
 
-        {/* ── Profile photo ── */}
         <div className="edit-avatar-wrap">
           <div className="edit-avatar-photo-wrap">
             <div
               className="edit-avatar"
-              onClick={() => fotoPerfil && setModalFoto("perfil")}
-              style={{ cursor: fotoPerfil ? "pointer" : "default" }}
-              title={fotoPerfil ? "Ver foto" : undefined}
+              onClick={() => urlPerfil && setModalFoto("perfil")}
+              style={{ cursor: urlPerfil ? "pointer" : "default" }}
+              title={urlPerfil ? "Ver foto" : undefined}
             >
               {urlPerfil
                 ? <img src={urlPerfil} alt="foto" className="edit-avatar-img" />
@@ -238,7 +235,6 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
               Registrado: {new Date(estudiante.fecha_registro).toLocaleDateString("es-CO")}
             </p>
 
-            {/* ── Document photo row: view + upload ── */}
             <div className="edit-doc-row">
               <button
                 className="edit-btn-doc"
@@ -270,47 +266,26 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
           </div>
         </div>
 
-        {/* ── Form fields ── */}
         <div className="edit-form">
           <div className="edit-field">
             <label className="edit-label">Nombre Completo</label>
-            <input
-              className="edit-input"
-              type="text"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Nombre completo"
-            />
+            <input className="edit-input" type="text" value={nombre}
+              onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo" />
           </div>
           <div className="edit-field">
             <label className="edit-label">Cédula</label>
-            <input
-              className="edit-input"
-              type="text"
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
-              placeholder="Número de cédula"
-            />
+            <input className="edit-input" type="text" value={cedula}
+              onChange={(e) => setCedula(e.target.value)} placeholder="Número de cédula" />
           </div>
           <div className="edit-field">
             <label className="edit-label">Correo Electrónico</label>
-            <input
-              className="edit-input"
-              type="email"
-              value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
-              placeholder="correo@ejemplo.com"
-            />
+            <input className="edit-input" type="email" value={correo}
+              onChange={(e) => setCorreo(e.target.value)} placeholder="correo@ejemplo.com" />
           </div>
           <div className="edit-field">
             <label className="edit-label">Teléfono</label>
-            <input
-              className="edit-input"
-              type="tel"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
-              placeholder="+57 300 000 0000"
-            />
+            <input className="edit-input" type="tel" value={telefono}
+              onChange={(e) => setTelefono(e.target.value)} placeholder="+57 300 000 0000" />
           </div>
 
           {error && <p className="edit-error">{error}</p>}

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { X, User, Fingerprint, Mail, Phone, Save, Camera, FileText } from "lucide-react";
 import { crearEstudiante } from "../../services/estudianteService";
 import { validarEstudiante } from "../../utils/estudianteValidacion";
-import { guardarImagen, obtenerUrlImagen } from "../../utils/fotoUtils";
+import { guardarImagen } from "../../utils/fotoUtils";
+import { guardarFotosEstudiante } from "../../services/estudianteService";
+import { getConnection } from "../../database/connection";
 import "../../styles/modalEstudiante.css";
 
 interface Props {
@@ -40,49 +42,47 @@ async function comprimirImagenABlob(file: File, maxSize: number, calidad: number
 }
 
 export default function ModalEstudiante({ onClose, onGuardado }: Props) {
-  const [nombre, setNombre] = useState("");
-  const [cedula, setCedula] = useState("");
-  const [correo, setCorreo] = useState("");
+  const [nombre, setNombre]     = useState("");
+  const [cedula, setCedula]     = useState("");
+  const [correo, setCorreo]     = useState("");
   const [telefono, setTelefono] = useState("");
-  const [fotoPerfil, setFotoPerfil]       = useState<string | null>(null);
-  const [fotoDocumento, setFotoDocumento] = useState<string | null>(null);
-  const [urlPerfil, setUrlPerfil] = useState<string | null>(null);
-  const [urlDocumento, setUrlDocumento] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
+
+  // Guardamos el blob en memoria hasta conocer el ID del estudiante
+  const [blobPerfil, setBlobPerfil]       = useState<Blob | null>(null);
+  const [blobDocumento, setBlobDocumento] = useState<Blob | null>(null);
+
+  // Solo para preview visual
+  const [urlPerfil, setUrlPerfil]         = useState<string | null>(null);
+  const [urlDocumento, setUrlDocumento]   = useState<string | null>(null);
 
   const refPerfil    = useRef<HTMLInputElement>(null);
   const refDocumento = useRef<HTMLInputElement>(null);
 
+  // Limpiar object URLs al desmontar para no tener memory leaks
   useEffect(() => {
-    if (fotoPerfil) {
-      obtenerUrlImagen(fotoPerfil).then(setUrlPerfil);
-    } else {
-      setUrlPerfil(null);
-    }
-  }, [fotoPerfil]);
-
-  useEffect(() => {
-    if (fotoDocumento) {
-      obtenerUrlImagen(fotoDocumento).then(setUrlDocumento);
-    } else {
-      setUrlDocumento(null);
-    }
-  }, [fotoDocumento]);
+    return () => {
+      if (urlPerfil) URL.revokeObjectURL(urlPerfil);
+      if (urlDocumento) URL.revokeObjectURL(urlDocumento);
+    };
+  }, []);
 
   async function handleFotoPerfil(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const blob = await comprimirImagenABlob(file, 200, 0.7);
-    const path = await guardarImagen(blob, `perfil_${Date.now()}.jpg`);
-    setFotoPerfil(path);
+    setBlobPerfil(blob);
+    setUrlPerfil(URL.createObjectURL(blob));
+    e.target.value = "";
   }
 
   async function handleFotoDocumento(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const blob = await comprimirImagenABlob(file, 600, 0.75);
-    const path = await guardarImagen(blob, `documento_${Date.now()}.jpg`);
-    setFotoDocumento(path);
+    setBlobDocumento(blob);
+    setUrlDocumento(URL.createObjectURL(blob));
+    e.target.value = "";
   }
 
   async function handleGuardar() {
@@ -91,13 +91,43 @@ export default function ModalEstudiante({ onClose, onGuardado }: Props) {
     if (err) { setError(err); return; }
 
     try {
+      // 1. Crear el estudiante sin fotos primero
       await crearEstudiante(
         { nombre_completo: nombre, cedula, correo, telefono, activo: 1 },
-        { foto_perfil: fotoPerfil, foto_documento: fotoDocumento }
+        undefined // sin fotos todavía
       );
+
+      // 2. Obtener el ID recién asignado por SQLite
+      const conn = await getConnection();
+      const rows = await conn.select<{ id: number }[]>(
+        `SELECT id FROM estudiantes WHERE cedula = ?`, [cedula]
+      );
+      const estudianteId = rows[0]?.id;
+
+      // 3. Guardar las fotos con nombre fijo por ID
+      if (estudianteId) {
+        const fotos: { foto_perfil?: string; foto_documento?: string } = {};
+
+        if (blobPerfil) {
+          const path = await guardarImagen(blobPerfil, `perfil_${estudianteId}.jpg`);
+          fotos.foto_perfil = path;
+        }
+        if (blobDocumento) {
+          const path = await guardarImagen(blobDocumento, `doc_${estudianteId}.jpg`);
+          fotos.foto_documento = path;
+        }
+        if (Object.keys(fotos).length > 0) {
+          await guardarFotosEstudiante(estudianteId, fotos);
+        }
+      }
+
       onGuardado();
     } catch (e: any) {
-      setError(e.message === "CEDULA_DUPLICADA" ? "La cédula ya está registrada." : "Error al guardar.");
+      setError(
+        e.message === "CEDULA_DUPLICADA"
+          ? "La cédula ya está registrada."
+          : "Error al guardar."
+      );
     }
   }
 
@@ -115,11 +145,16 @@ export default function ModalEstudiante({ onClose, onGuardado }: Props) {
 
         <div className="modal-body">
 
-          <div className="fotos-row" style={{display: "flex", gap: "100px"}}>
+          <div className="fotos-row" style={{ display: "flex", gap: "100px" }}>
+
+            {/* Foto de perfil */}
             <div className="avatar-upload">
               <div className="avatar-preview">
                 <div className="avatar-circle-lg">
-                  {urlPerfil ? <img src={urlPerfil} alt="perfil" className="avatar-img" /> : <User size={36} />}
+                  {urlPerfil
+                    ? <img src={urlPerfil} alt="perfil" className="avatar-img" />
+                    : <User size={36} />
+                  }
                 </div>
                 <button className="avatar-camera-btn" type="button" onClick={() => refPerfil.current?.click()}>
                   <Camera size={13} />
@@ -128,15 +163,21 @@ export default function ModalEstudiante({ onClose, onGuardado }: Props) {
               <div>
                 <p className="avatar-upload-label">Foto de Perfil</p>
                 <p className="avatar-upload-hint">PNG, JPG · 200×200</p>
-                <button className="btn-upload-link" type="button" onClick={() => refPerfil.current?.click()}>Subir imagen</button>
+                <button className="btn-upload-link" type="button" onClick={() => refPerfil.current?.click()}>
+                  Subir imagen
+                </button>
               </div>
               <input ref={refPerfil} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFotoPerfil} />
             </div>
 
+            {/* Foto del documento */}
             <div className="avatar-upload">
               <div className="avatar-preview">
                 <div className="avatar-circle-lg avatar-doc">
-                  {urlDocumento ? <img src={urlDocumento} alt="documento" className="avatar-img" /> : <FileText size={30} />}
+                  {urlDocumento
+                    ? <img src={urlDocumento} alt="documento" className="avatar-img" />
+                    : <FileText size={30} />
+                  }
                 </div>
                 <button className="avatar-camera-btn" type="button" onClick={() => refDocumento.current?.click()}>
                   <Camera size={13} />
@@ -145,10 +186,13 @@ export default function ModalEstudiante({ onClose, onGuardado }: Props) {
               <div>
                 <p className="avatar-upload-label">Foto del Documento</p>
                 <p className="avatar-upload-hint">PNG, JPG · cédula / ID</p>
-                <button className="btn-upload-link" type="button" onClick={() => refDocumento.current?.click()}>Subir imagen</button>
+                <button className="btn-upload-link" type="button" onClick={() => refDocumento.current?.click()}>
+                  Subir imagen
+                </button>
               </div>
               <input ref={refDocumento} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFotoDocumento} />
             </div>
+
           </div>
 
           <div className="form-grid">

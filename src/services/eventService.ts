@@ -53,3 +53,14 @@ export async function eliminarEvento(id: number) {
 }
 
 
+export async function obtenerTodosLosEventos(): Promise<Evento[]> {
+  const conn = await getConnection();
+  return await conn.select<Evento[]>(`
+    SELECT *
+    FROM eventos
+    WHERE activo = 1
+    ORDER BY fecha ASC
+  `);
+}
+
+

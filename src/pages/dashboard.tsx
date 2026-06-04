@@ -281,7 +281,7 @@ export default function Dashboard() {
       </div>
 
       {isModalOpen && <ModalAddEvent onClose={() => setIsModalOpen(false)} onGuardado={() => cargarDatos(mesSeleccionado, anioSeleccionado)} />}
-      {isEventosModalOpen && <ModalVerEventos onClose={() => setIsEventosModalOpen(false)} eventos={eventos} />}
+      {isEventosModalOpen && <ModalVerEventos onClose={() => setIsEventosModalOpen(false)} />}
     </>
   );
 }

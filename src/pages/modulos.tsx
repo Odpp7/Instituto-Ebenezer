@@ -5,17 +5,22 @@ import { Toast } from "primereact/toast";
 import ModalAsistencia from "../components/modals/ModalAsistencia";
 import EditModulo from "../components/EditComponent/EditModal";
 import ModalModulo from "../components/modals/ModalModulo";
+import ModalConfirmar from "../components/modals/ModalConfirmar";
 import "../styles/modulos.css";
 
 export default function Modulos() {
-  const [modalAbierto, setModalAbierto] = useState(false);
-  const [modulos, setModulos] = useState<ModuloConProfesor[]>([]);
-  const [moduloEditando, setModuloEditando] = useState<ModuloConProfesor | null>(null);
-  const [busqueda, setBusqueda] = useState("");
-  const [paginaActual, setPaginaActual] = useState(1);
+  const [modalAbierto, setModalAbierto]       = useState(false);
+  const [modulos, setModulos]                 = useState<ModuloConProfesor[]>([]);
+  const [moduloEditando, setModuloEditando]   = useState<ModuloConProfesor | null>(null);
+  const [busqueda, setBusqueda]               = useState("");
+  const [paginaActual, setPaginaActual]       = useState(1);
   const [moduloAsistencia, setModuloAsistencia] = useState<ModuloConProfesor | null>(null);
-  const toast = useRef<Toast>(null);
 
+  // Modal de confirmación para eliminar
+  const [confirmarId, setConfirmarId]         = useState<number | null>(null);
+  const [confirmarNombre, setConfirmarNombre] = useState("");
+
+  const toast = useRef<Toast>(null);
   const MODULOS_POR_PAGINA = 6;
 
   async function cargarModulos() {
@@ -27,20 +32,19 @@ export default function Modulos() {
     }
   }
 
-  async function handleEliminar(id: number) {
-    if (window.confirm("¿Estás seguro de eliminar este módulo?")) {
-      try {
-        await eliminarModulo(id);
-        cargarModulos();
-      } catch (error) {
-        console.error("Error al eliminar módulo:", error);
-      }
+  async function handleEliminar() {
+    if (confirmarId === null) return;
+    try {
+      await eliminarModulo(confirmarId);
+      setConfirmarId(null);
+      cargarModulos();
+    } catch (error) {
+      console.error("Error al eliminar módulo:", error);
     }
   }
 
-  useEffect(() => {
-    cargarModulos()
-  }, []);
+  useEffect(() => { cargarModulos(); }, []);
+  useEffect(() => { setPaginaActual(1); }, [busqueda]);
 
   const modulosFiltrados = modulos.filter((m) =>
     m.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -57,6 +61,7 @@ export default function Modulos() {
   return (
     <>
       <Toast ref={toast} position="top-right" />
+
       <div className="page-header">
         <div>
           <h1 className="page-title">Gestión de Módulos</h1>
@@ -89,7 +94,7 @@ export default function Modulos() {
                 <th>Nombre</th>
                 <th>Programa</th>
                 <th>Ciclo</th>
-                <th >Créditos</th>
+                <th>Créditos</th>
                 <th>Instructor</th>
                 <th>Precio</th>
                 <th>Estado</th>
@@ -97,7 +102,6 @@ export default function Modulos() {
               </tr>
             </thead>
             <tbody>
-
               {modulosPaginados.length === 0 && (
                 <tr>
                   <td colSpan={9} style={{ textAlign: "center", padding: "24px", color: "#94a3b8" }}>
@@ -105,14 +109,15 @@ export default function Modulos() {
                   </td>
                 </tr>
               )}
-
               {modulosPaginados.map((m) => (
                 <tr key={m.id}>
                   <td className="td-code">{m.codigo}</td>
                   <td className="td-name">{m.nombre}</td>
-                  <td className="badge-programa"> {m.programa_nombre} </td>
-                  <td style={{ fontSize: 13, color: "#64748b" }}> {m.ciclo_nombre ?? "—"} </td>
-                  <td className="td-center"> <span className="badge-creditos">{m.creditos}</span> </td>
+                  <td className="badge-programa">{m.programa_nombre}</td>
+                  <td style={{ fontSize: 13, color: "#64748b" }}>{m.ciclo_nombre ?? "—"}</td>
+                  <td className="td-center">
+                    <span className="badge-creditos">{m.creditos}</span>
+                  </td>
                   <td>{m.profesor_nombre || "Sin asignar"}</td>
                   <td style={{ width: "115px" }}>$ {m.precio.toLocaleString("es-CO")}</td>
                   <td>
@@ -121,7 +126,6 @@ export default function Modulos() {
                       : <span className="badge badge-inactive">INACTIVO</span>
                     }
                   </td>
-
                   <td className="td-right">
                     <div className="actions-cell">
                       <button
@@ -133,7 +137,11 @@ export default function Modulos() {
                       </button>
                       <button
                         className="btn-action delete"
-                        onClick={() => m.activo === 1 && m.id !== undefined && handleEliminar(m.id)}
+                        onClick={() => {
+                          if (m.activo === 0 || m.id === undefined) return;
+                          setConfirmarId(m.id);
+                          setConfirmarNombre(m.nombre);
+                        }}
                         disabled={m.activo === 0 || m.id === undefined}
                       >
                         <Trash size={16} />
@@ -191,6 +199,17 @@ export default function Modulos() {
           modulo={moduloAsistencia}
           onClose={() => setModuloAsistencia(null)}
           toast={toast}
+        />
+      )}
+
+      {/* Modal confirmación eliminar */}
+      {confirmarId !== null && (
+        <ModalConfirmar
+          titulo="Desactivar módulo"
+          mensaje={`¿Estás seguro de desactivar "${confirmarNombre}"? El módulo dejará de estar disponible para inscripciones.`}
+          labelConfirmar="Desactivar"
+          onConfirmar={handleEliminar}
+          onCancelar={() => setConfirmarId(null)}
         />
       )}
 

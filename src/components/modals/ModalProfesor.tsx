@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { X, User, Save, Camera } from "lucide-react";
 import { crearProfesor } from "../../services/profesorService";
 import { validarProfesor } from "../../utils/profesorValidacion";
+import { guardarImagen } from "../../utils/fotoUtils";
 import "../../styles/modalProfesor.css";
 
 interface Props {
@@ -9,20 +10,24 @@ interface Props {
   onGuardar: () => void;
 }
 
-function comprimirImagen(file: File): Promise<string> {
+async function comprimirImagenABlob(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = 200; canvas.height = 200;
+      canvas.width = 200;
+      canvas.height = 200;
       const ctx = canvas.getContext("2d")!;
       const min = Math.min(img.width, img.height);
       const sx = (img.width - min) / 2;
       const sy = (img.height - min) / 2;
       ctx.drawImage(img, sx, sy, min, min, 0, 0, 200, 200);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.7));
+      canvas.toBlob((blob) => {
+        if (!blob) return reject("Error al comprimir");
+        resolve(blob);
+      }, "image/jpeg", 0.7);
     };
     img.onerror = reject;
     img.src = url;
@@ -35,14 +40,20 @@ export default function ModalProfesor({ onClose, onGuardar }: Props) {
   const [correo, setCorreo]             = useState("");
   const [telefono, setTelefono]         = useState("");
   const [especialidad, setEspecialidad] = useState("");
-  const [fotoPerfil, setFotoPerfil]     = useState<string | null>(null);
+
+  // blob para preview local, path para guardar en BD
+  const [fotoBlob, setFotoBlob]         = useState<Blob | null>(null);
+  const [fotoPreview, setFotoPreview]   = useState<string | null>(null);
   const [error, setError]               = useState<string | null>(null);
   const refFile = useRef<HTMLInputElement>(null);
 
   async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setFotoPerfil(await comprimirImagen(file));
+    const blob = await comprimirImagenABlob(file);
+    setFotoBlob(blob);
+    setFotoPreview(URL.createObjectURL(blob));
+    e.target.value = "";
   }
 
   async function handleGuardar(e: React.FormEvent) {
@@ -50,14 +61,35 @@ export default function ModalProfesor({ onClose, onGuardar }: Props) {
     setError(null);
     const err = validarProfesor({ nombre, cedula, correo, telefono, especialidad });
     if (err) { setError(err); return; }
+
     try {
+      // Primero crear el profesor para obtener su ID
       await crearProfesor(
         { nombre_completo: nombre, cedula, correo, telefono, especialidad },
-        fotoPerfil
+        null // la foto la guardamos después con el ID real
       );
+
+      // Si hay foto, guardarla usando el ID real del profesor recién creado
+      if (fotoBlob) {
+        const { getConnection } = await import("../../database/connection");
+        const conn = await getConnection();
+        const rows = await conn.select<{ id: number }[]>(
+          `SELECT id FROM profesores WHERE cedula = ?`, [cedula]
+        );
+        if (rows[0]) {
+          const { guardarFotoProfesor } = await import("../../services/profesorService");
+          const nombreFinal = `perfil_${rows[0].id}.jpg`;
+          await guardarImagen(fotoBlob, nombreFinal, "profesores");
+          await guardarFotoProfesor(rows[0].id, nombreFinal);
+        }
+      }
+
       onGuardar();
     } catch (err: any) {
-      setError(err.message === "CEDULA_DUPLICADA" ? "La cédula ya está registrada." : "Error al guardar el profesor.");
+      setError(err.message === "CEDULA_DUPLICADA"
+        ? "La cédula ya está registrada."
+        : "Error al guardar el profesor."
+      );
     }
   }
 
@@ -76,13 +108,13 @@ export default function ModalProfesor({ onClose, onGuardar }: Props) {
         <form onSubmit={handleGuardar}>
           <div className="modal-body">
 
-            {/* FOTO */}
             <div className="avatar-upload-area" onClick={() => refFile.current?.click()}>
               <div className="avatar-preview">
                 <div className="avatar-circle-lg">
-                  {fotoPerfil
-                    ? <img src={fotoPerfil} alt="perfil" className="avatar-img" />
-                    : <User size={38} />}
+                  {fotoPreview
+                    ? <img src={fotoPreview} alt="perfil" className="avatar-img" />
+                    : <User size={38} />
+                  }
                 </div>
                 <button className="avatar-camera-btn" type="button"><Camera size={13} /></button>
               </div>
@@ -90,7 +122,13 @@ export default function ModalProfesor({ onClose, onGuardar }: Props) {
                 <p className="avatar-upload-label">Foto de Perfil</p>
                 <p className="avatar-upload-hint">Haz clic para subir una imagen (JPG, PNG)</p>
               </div>
-              <input ref={refFile} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFoto} />
+              <input
+                ref={refFile}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleFoto}
+              />
             </div>
 
             <div className="form-grid">

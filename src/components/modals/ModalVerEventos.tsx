@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { X, CalendarDays, Clock, MapPin } from "lucide-react";
-import { obtenerEventos, Evento } from "../../services/eventService";
+import { Evento, obtenerTodosLosEventos  } from "../../services/eventService";
 import "../../styles/modalVerEventos.css";
 
 interface Props {
   onClose: () => void;
-  eventos: Evento[];
 }
 
 const MESES = [
@@ -43,10 +42,11 @@ export default function ModalVerEventos({ onClose }: Props) {
   const [cargando, setCargando] = useState(true);
   const anioActual = new Date().getFullYear();
 
+
   useEffect(() => {
     async function cargar() {
       try {
-        const data = await obtenerEventos();
+        const data = await obtenerTodosLosEventos(); 
         setEventos(data);
       } finally {
         setCargando(false);
@@ -59,7 +59,7 @@ export default function ModalVerEventos({ onClose }: Props) {
   const porMes = MESES.map((_, mesIdx) =>
     eventos.filter((e) => {
       const f = new Date(e.fecha + "T00:00:00");
-      return f.getMonth() === mesIdx;
+      return f.getMonth() === mesIdx && f.getFullYear() === anioActual;
     })
   );
 

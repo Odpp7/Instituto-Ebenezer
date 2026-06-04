@@ -1,0 +1,104 @@
+/* ── Modal Confirmar ─────────────────────────────────────────────────────── */
+
+.mconf-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.mconf-box {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.mconf-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 20px 0 20px;
+}
+
+.mconf-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #FEF3C7;
+  color: #D97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mconf-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.mconf-close:hover { color: #1e293b; }
+
+.mconf-body {
+  padding: 16px 20px 20px 20px;
+}
+
+.mconf-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1B2B4B;
+  margin: 0 0 6px 0;
+}
+
+.mconf-mensaje {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.mconf-footer {
+  display: flex;
+  gap: 10px;
+  padding: 0 20px 20px 20px;
+  justify-content: flex-end;
+}
+
+.mconf-btn-cancel {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mconf-btn-cancel:hover { background: #f1f5f9; }
+
+.mconf-btn-confirm {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #9B2335;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mconf-btn-confirm:hover { background: #7f1d2a; }
