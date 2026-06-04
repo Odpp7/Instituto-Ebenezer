@@ -1,11 +1,11 @@
 {
-  "version": "0.1.1",
-  "notes": "Probando AutoUpdater",
-  "pub_date": "2026-04-01T00:00:00Z",
+  "version": "0.1.2",
+  "notes": "Mejoras de interfaz: paginación de profesores, modal de confirmación para eliminar, corrección de eventos en calendario y optimización de fotos",
+  "pub_date": "2026-06-04T00:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMnpNWlcvZE12RHkrOGRWdzF3ZUFTNTRSL2FTSXRYYmhVOGFBS1BjZWdwNEVWUEc2cERDT2gzRnk4OUV4aEFLM28yRFJsSXdnRlJUU2VoV3hkRjR4R2s4RlBsMVRxUEFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc1MDY5OTkxCWZpbGU6SW5zdGl0dXRvLUViZW5lemVyXzAuMS4xX3g2NF9lbi1VUy5tc2kKTUZxcWZRbTZYcUF1Z0EwdlFBR0JvNFp2WEtFTTE3SEg4UDUvWTIyMm9UL0VXNkhBMDQzdXRQNkVhWGdsOGtwRzdRSDJDdkxUMzRNdXhjYlVMTFJ3Q2c9PQo=",
-      "url": "https://github.com/Odpp7/Instituto-Ebenezer/releases/download/v0.1.1/Instituto-Ebenezer_0.1.1_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMnpNWlcvZE12RDdOcURLVmJuM0U5eVF2VTRDVGI1SGJ0d1h0ZkQ2STJ1Z2d0OXp4UzF2eGR1dFpBTlVOdDNnZ09TdVVpU01wdnZrS0pJYkRERHlwckFBYUhmVjNoTGdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgwNTgzMTgxCWZpbGU6SW5zdGl0dXRvLUViZW5lemVyXzAuMS4yX3g2NF9lbi1VUy5tc2kKU1ZhSCtUN055Q1VHeldyZ1ozZEt0NWV5QlBaQlh5QUxxZ0R5SVc5Z3lrZFdiaWxETWZiUnBjcXEvSWRjT0Mwc1hzeGQzK080RHgrL0FyOFVsaGgyQnc9PQo=",
+      "url": "https://github.com/Odpp7/Instituto-Ebenezer/releases/download/v0.1.2/Instituto-Ebenezer_0.1.2_x64_en-US.msi"
     }
   }
 }
