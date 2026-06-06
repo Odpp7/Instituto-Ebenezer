@@ -13,6 +13,7 @@ export interface Profesor {
 
 export interface FotosProfesor {
   foto_perfil: string | null;
+  foto_documento: string | null;
 }
 
 
@@ -28,21 +29,28 @@ export async function obtenerProfesores(): Promise<Profesor[]> {
 export async function obtenerFotosProfesor(id: number): Promise<FotosProfesor> {
   const conn = await getConnection();
   const rows = await conn.select<FotosProfesor[]>(
-    `SELECT foto_perfil FROM fotos_personas
+    `SELECT foto_perfil, foto_documento FROM fotos_personas
      WHERE persona_tipo = 'PROFESOR' AND persona_id = ?`,
     [id]
   );
-  return rows[0] ?? { foto_perfil: null };
+  return rows[0] ?? { foto_perfil: null, foto_documento: null };
 }
 
-export async function guardarFotoProfesor(id: number, foto_perfil: string) {
+export async function guardarFotosProfesor(id: number, fotos: Partial<FotosProfesor>) {
   const conn = await getConnection();
   await conn.execute(
-    `INSERT INTO fotos_personas (persona_tipo, persona_id, foto_perfil)
-     VALUES ('PROFESOR', ?, ?)
-     ON CONFLICT(persona_tipo, persona_id) DO UPDATE SET foto_perfil = excluded.foto_perfil`,
-    [id, foto_perfil]
+    `INSERT INTO fotos_personas (persona_tipo, persona_id, foto_perfil, foto_documento)
+     VALUES ('PROFESOR', ?, ?, ?)
+     ON CONFLICT(persona_tipo, persona_id) DO UPDATE SET
+       foto_perfil    = COALESCE(excluded.foto_perfil, foto_perfil),
+       foto_documento = COALESCE(excluded.foto_documento, foto_documento)`,
+    [id, fotos.foto_perfil ?? null, fotos.foto_documento ?? null]
   );
+}
+
+// Mantener compatibilidad con el nombre anterior — internamente usa guardarFotosProfesor
+export async function guardarFotoProfesor(id: number, foto_perfil: string) {
+  await guardarFotosProfesor(id, { foto_perfil });
 }
 
 export async function crearProfesor(

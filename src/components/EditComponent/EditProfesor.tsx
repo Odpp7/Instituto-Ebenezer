@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, X, User, Camera } from "lucide-react";
-import { Profesor, actualizarProfesor, obtenerFotosProfesor, guardarFotoProfesor } from "../../services/profesorService";
-import { guardarImagen } from "../../utils/fotoUtils";
+import { Save, X, User, Camera, FileText, Upload  } from "lucide-react";
+import { Profesor, actualizarProfesor, obtenerFotosProfesor, guardarFotosProfesor } from "../../services/profesorService";
+import { guardarImagen, obtenerUrlImagen } from "../../utils/fotoUtils";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import "../../styles/editProfesor.css";
@@ -36,18 +37,12 @@ async function comprimirImagenABlob(file: File): Promise<Blob> {
   });
 }
 
-// Detecta si el valor guardado es base64 legacy o un nombre de archivo nuevo
 function esBase64(valor: string): boolean {
   return valor.startsWith("data:image") || valor.length > 260;
 }
 
-// Resuelve la URL de visualización sin importar el formato almacenado
 async function resolverUrlFoto(fotoPerfil: string): Promise<string> {
-  if (esBase64(fotoPerfil)) {
-    // Foto legacy: ya es un dataURL, se usa directo
-    return fotoPerfil;
-  }
-  // Foto nueva: es un nombre de archivo, construir la URL con Tauri
+  if (esBase64(fotoPerfil)) return fotoPerfil;
   const baseDir = await appDataDir();
   const fullPath = await join(baseDir, "fotos", "profesores", fotoPerfil);
   return convertFileSrc(fullPath);
@@ -60,17 +55,20 @@ export default function EditProfesor({ profesor, onGuardado, onCancelar }: Props
   const [telefono, setTelefono]         = useState("");
   const [especialidad, setEspecialidad] = useState("");
 
-  // fotoPerfil: lo que está guardado en BD (base64 legacy o nombre de archivo)
-  const [fotoPerfil, setFotoPerfil]     = useState<string | null>(null);
-  // urlVisualizacion: la URL real para mostrar en el <img>
+  const [fotoPerfil, setFotoPerfil]           = useState<string | null>(null);
   const [urlVisualizacion, setUrlVisualizacion] = useState<string | null>(null);
-  // fotoModificada: true solo si el usuario cambió la foto en esta sesión
-  const [fotoModificada, setFotoModificada] = useState(false);
+  const [fotoModificada, setFotoModificada]   = useState(false);
 
-  const [verFoto, setVerFoto]           = useState(false);
+  const [fotoDoc, setFotoDoc]           = useState<string | null>(null);
+  const [urlDoc, setUrlDoc]             = useState<string | null>(null);
+  const [docModificado, setDocModificado] = useState(false);
+
+  const [modalFoto, setModalFoto]       = useState<"perfil" | "documento" | null>(null);
   const [guardando, setGuardando]       = useState(false);
   const [error, setError]               = useState<string | null>(null);
-  const refFile = useRef<HTMLInputElement>(null);
+
+  const refFilePerfil = useRef<HTMLInputElement>(null);
+  const refFileDoc    = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profesor) {
@@ -83,12 +81,22 @@ export default function EditProfesor({ profesor, onGuardado, onCancelar }: Props
       setFotoPerfil(null);
       setUrlVisualizacion(null);
       setFotoModificada(false);
+      setFotoDoc(null);
+      setUrlDoc(null);
+      setDocModificado(false);
 
       obtenerFotosProfesor(profesor.id).then(async (f) => {
         if (f.foto_perfil) {
           setFotoPerfil(f.foto_perfil);
           const url = await resolverUrlFoto(f.foto_perfil);
           setUrlVisualizacion(url);
+        }
+        if (f.foto_documento) {
+          setFotoDoc(f.foto_documento);
+          if (!f.foto_documento.endsWith(".pdf")) {
+            const url = await obtenerUrlImagen(f.foto_documento, "profesores");
+            setUrlDoc(url);
+          }
         }
       });
     }
@@ -100,19 +108,48 @@ export default function EditProfesor({ profesor, onGuardado, onCancelar }: Props
     return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
   }
 
-  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function abrirPDF(nombreArchivo: string) {
+    const baseDir = await appDataDir();
+    const rutaCompleta = await join(baseDir, "fotos", "profesores", nombreArchivo);
+    await openPath(rutaCompleta);
+  }
+
+  async function handleFotoPerfil(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-
+    if (!file || !profesor) return;
     const blob = await comprimirImagenABlob(file);
-    // Guardar en la carpeta de profesores
-    const nombreArchivo = `perfil_${profesor!.id}.jpg`;
-    const path = await guardarImagen(blob, nombreArchivo, "profesores");
-
+    const path = await guardarImagen(blob, `perfil_${profesor.id}.jpg`, "profesores");
     setFotoPerfil(path);
-    // Preview inmediato usando object URL
     setUrlVisualizacion(URL.createObjectURL(blob));
     setFotoModificada(true);
+    e.target.value = "";
+  }
+
+  async function handleFotoDoc(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !profesor) return;
+
+    const MAX_MB = 5;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setError(`El archivo es demasiado grande. El límite es ${MAX_MB} MB.`);
+      e.target.value = "";
+      return;
+    }
+
+    const esPDF = file.type === "application/pdf";
+
+    if (esPDF) {
+      const path = await guardarImagen(file, `doc_${profesor.id}.pdf`, "profesores");
+      setFotoDoc(path);
+      setUrlDoc(null);
+    } else {
+      const blob = await comprimirImagenABlob(file);
+      const path = await guardarImagen(blob, `doc_${profesor.id}.jpg`, "profesores");
+      setFotoDoc(path);
+      setUrlDoc(URL.createObjectURL(blob));
+    }
+
+    setDocModificado(true);
     e.target.value = "";
   }
 
@@ -133,9 +170,12 @@ export default function EditProfesor({ profesor, onGuardado, onCancelar }: Props
         especialidad: especialidad.trim() || null,
       });
 
-      // Solo guardar la foto si fue modificada en esta sesión
-      if (fotoModificada && fotoPerfil) {
-        await guardarFotoProfesor(profesor.id, fotoPerfil);
+      const fotosActualizadas: { foto_perfil?: string; foto_documento?: string } = {};
+      if (fotoModificada && fotoPerfil) fotosActualizadas.foto_perfil = fotoPerfil;
+      if (docModificado && fotoDoc)     fotosActualizadas.foto_documento = fotoDoc;
+
+      if (Object.keys(fotosActualizadas).length > 0) {
+        await guardarFotosProfesor(profesor.id, fotosActualizadas);
       }
 
       onGuardado();
@@ -160,16 +200,41 @@ export default function EditProfesor({ profesor, onGuardado, onCancelar }: Props
 
   return (
     <>
-      {verFoto && (
-        <div className="foto-visor-overlay" onClick={() => setVerFoto(false)}>
+      {modalFoto && (
+        <div className="foto-visor-overlay" onClick={() => setModalFoto(null)}>
           <div className="foto-visor-box" onClick={(e) => e.stopPropagation()}>
-            <button className="foto-visor-close" onClick={() => setVerFoto(false)}>
+            <button className="foto-visor-close" onClick={() => setModalFoto(null)}>
               <X size={18} />
             </button>
-            <p className="foto-visor-titulo">Foto de Perfil</p>
-            {urlVisualizacion
-              ? <img src={urlVisualizacion} alt="foto" className="foto-visor-img" />
-              : <p className="foto-visor-vacio">Sin foto registrada</p>
+            <p className="foto-visor-titulo">
+              {modalFoto === "perfil" ? "Foto de Perfil" : "Copia del Documento"}
+            </p>
+            {modalFoto === "perfil"
+              ? (urlVisualizacion
+                  ? <img src={urlVisualizacion} alt="foto" className="foto-visor-img" />
+                  : <p className="foto-visor-vacio">Sin foto registrada</p>
+                )
+              : (fotoDoc
+                  ? fotoDoc.endsWith(".pdf")
+                    ? (
+                      <div style={{ textAlign: "center", padding: "20px 0" }}>
+                        <p style={{ color: "#1B2B4B", fontWeight: 600, marginBottom: 16, fontSize: 15 }}>
+                          <FileText/> Documento PDF registrado
+                        </p>
+                        <button
+                          className="edit-prof-btn-save"
+                          onClick={() => abrirPDF(fotoDoc)}
+                        >
+                          <FileText size={15} />
+                          Abrir PDF
+                        </button>
+                      </div>
+                    )
+                    : urlDoc
+                      ? <img src={urlDoc} className="foto-visor-img" />
+                      : <p className="foto-visor-vacio">Sin documento registrado</p>
+                  : <p className="foto-visor-vacio">Sin documento registrado</p>
+                )
             }
           </div>
         </div>
@@ -188,7 +253,7 @@ export default function EditProfesor({ profesor, onGuardado, onCancelar }: Props
           <div className="edit-prof-avatar-photo-wrap">
             <div
               className="edit-prof-avatar"
-              onClick={() => urlVisualizacion && setVerFoto(true)}
+              onClick={() => urlVisualizacion && setModalFoto("perfil")}
               style={{ cursor: urlVisualizacion ? "pointer" : "default" }}
               title={urlVisualizacion ? "Ver foto" : undefined}
             >
@@ -200,24 +265,54 @@ export default function EditProfesor({ profesor, onGuardado, onCancelar }: Props
             <button
               className="edit-prof-avatar-cam"
               type="button"
-              onClick={() => refFile.current?.click()}
+              onClick={() => refFilePerfil.current?.click()}
               title="Cambiar foto de perfil"
             >
               <Camera size={12} />
             </button>
             <input
-              ref={refFile}
+              ref={refFilePerfil}
               type="file"
               accept="image/*"
               style={{ display: "none" }}
-              onChange={handleFoto}
+              onChange={handleFotoPerfil}
             />
           </div>
+
           <div>
             <p className="edit-prof-avatar-name">{nombre || profesor.nombre_completo}</p>
             <p className="edit-prof-avatar-since">
               Registrado: {new Date(profesor.fecha_registro).toLocaleDateString("es-CO")}
             </p>
+
+            <div className="edit-doc-row">
+              <button
+                className="edit-btn-doc"
+                type="button"
+                onClick={() => setModalFoto("documento")}
+              >
+                <FileText size={12} />
+                Ver copia del documento
+              </button>
+
+              <button
+                className={`edit-btn-doc${docModificado ? " edit-btn-doc-upload--done" : ""}`}
+                type="button"
+                onClick={() => refFileDoc.current?.click()}
+                title="Subir fotocopia del documento"
+              >
+                <Upload size={12} />
+                {docModificado ? "Documento listo ✓" : "Subir fotocopia"}
+              </button>
+
+              <input
+                ref={refFileDoc}
+                type="file"
+                accept="image/*,application/pdf"
+                style={{ display: "none" }}
+                onChange={handleFotoDoc}
+              />
+            </div>
           </div>
         </div>
 

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Save, X, User, Camera, FileText, Upload } from "lucide-react";
 import { guardarImagen, obtenerUrlImagen } from "../../utils/fotoUtils";
 import { Estudiante, actualizarEstudiante, obtenerFotosEstudiante, guardarFotosEstudiante } from "../../services/estudianteService";
+import { openPath } from "@tauri-apps/plugin-opener";
+import { appDataDir, join } from "@tauri-apps/api/path";
 import "../../styles/editStudent.css";
 
 interface Props {
@@ -14,26 +16,21 @@ async function comprimirImagenABlob(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-
     img.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = 200;
       canvas.height = 200;
-
       const ctx = canvas.getContext("2d")!;
       const min = Math.min(img.width, img.height);
       const sx = (img.width - min) / 2;
       const sy = (img.height - min) / 2;
-
       ctx.drawImage(img, sx, sy, min, min, 0, 0, 200, 200);
       URL.revokeObjectURL(url);
-
       canvas.toBlob((blob) => {
         if (!blob) return reject("Error");
         resolve(blob);
       }, "image/jpeg", 0.7);
     };
-
     img.onerror = reject;
     img.src = url;
   });
@@ -84,7 +81,7 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
   }, [fotoPerfil]);
 
   useEffect(() => {
-    if (fotoDoc) {
+    if (fotoDoc && !fotoDoc.endsWith(".pdf")) {
       obtenerUrlImagen(fotoDoc).then(setUrlDoc);
     } else {
       setUrlDoc(null);
@@ -97,11 +94,17 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
     return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
   }
 
+  // Abre el PDF con el visor predeterminado del sistema (Adobe, Edge, etc.)
+  async function abrirPDF(nombreArchivo: string, subcarpeta: "estudiantes" | "profesores" = "estudiantes") {
+    const baseDir = await appDataDir();
+    const rutaCompleta = await join(baseDir, "fotos", subcarpeta, nombreArchivo);
+    await openPath(rutaCompleta);
+  }
+
   async function handleFotoPerfil(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !estudiante) return;
     const blob = await comprimirImagenABlob(file);
-    // Nombre fijo por ID — sobreescribe el archivo anterior, sin archivos huérfanos
     const path = await guardarImagen(blob, `perfil_${estudiante.id}.jpg`);
     setFotoPerfil(path);
     setUrlPerfil(URL.createObjectURL(blob));
@@ -112,11 +115,27 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
   async function handleFotoDoc(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !estudiante) return;
-    const blob = await comprimirImagenABlob(file);
-    // Nombre fijo por ID — sobreescribe el archivo anterior, sin archivos huérfanos
-    const path = await guardarImagen(blob, `doc_${estudiante.id}.jpg`);
-    setFotoDoc(path);
-    setUrlDoc(URL.createObjectURL(blob));
+
+    const MAX_MB = 5;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setError(`El archivo es demasiado grande. El límite es ${MAX_MB} MB.`);
+      e.target.value = "";
+      return;
+    }
+
+    const esPDF = file.type === "application/pdf";
+
+    if (esPDF) {
+      const path = await guardarImagen(file, `doc_${estudiante.id}.pdf`);
+      setFotoDoc(path);
+      setUrlDoc(null);
+    } else {
+      const blob = await comprimirImagenABlob(file);
+      const path = await guardarImagen(blob, `doc_${estudiante.id}.jpg`);
+      setFotoDoc(path);
+      setUrlDoc(URL.createObjectURL(blob));
+    }
+
     setDocModificado(true);
     e.target.value = "";
   }
@@ -181,9 +200,26 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
                   ? <img src={urlPerfil} className="foto-visor-img" />
                   : <p className="foto-visor-vacio">Sin foto registrada</p>
                 )
-              : (urlDoc
-                  ? <img src={urlDoc} className="foto-visor-img" />
-                  : <p className="foto-visor-vacio">Sin foto registrada</p>
+              : (fotoDoc
+                  ? fotoDoc.endsWith(".pdf")
+                    ? (
+                      <div style={{ textAlign: "center", padding: "20px 0" }}>
+                        <p style={{ color: "#1B2B4B", fontWeight: 600, marginBottom: 16, fontSize: 15 }}>
+                          📄 Documento PDF registrado
+                        </p>
+                        <button
+                          className="edit-btn-save"
+                          onClick={() => abrirPDF(fotoDoc)}
+                        >
+                          <FileText size={15} />
+                          Abrir PDF
+                        </button>
+                      </div>
+                    )
+                    : urlDoc
+                      ? <img src={urlDoc} className="foto-visor-img" />
+                      : <p className="foto-visor-vacio">Sin documento registrado</p>
+                  : <p className="foto-visor-vacio">Sin documento registrado</p>
                 )
             }
           </div>
@@ -258,7 +294,7 @@ export default function EditStudent({ estudiante, onGuardado, onCancelar }: Prop
               <input
                 ref={refFileDoc}
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 style={{ display: "none" }}
                 onChange={handleFotoDoc}
               />

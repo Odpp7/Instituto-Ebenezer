@@ -20,9 +20,8 @@ fn main() {
         )
         .build(),
     )
-
+    .plugin(tauri_plugin_opener::init())
     .plugin(tauri_plugin_updater::Builder::new().build())
-
     .plugin(tauri_plugin_process::init())
     .plugin(fs_plugin())
     .run(tauri::generate_context!())

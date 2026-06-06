@@ -1,11 +1,11 @@
 {
-  "version": "0.1.2",
-  "notes": "Mejoras de interfaz: paginación de profesores, modal de confirmación para eliminar, corrección de eventos en calendario y optimización de fotos",
-  "pub_date": "2026-06-04T00:00:00Z",
+  "version": "0.1.3",
+  "notes": "Fotocopia de documento para estudiantes y profesores (imagen o PDF), límite de tamaño en archivos, corrección de permisos",
+  "pub_date": "2026-06-06T00:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMnpNWlcvZE12RDdOcURLVmJuM0U5eVF2VTRDVGI1SGJ0d1h0ZkQ2STJ1Z2d0OXp4UzF2eGR1dFpBTlVOdDNnZ09TdVVpU01wdnZrS0pJYkRERHlwckFBYUhmVjNoTGdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgwNTgzMTgxCWZpbGU6SW5zdGl0dXRvLUViZW5lemVyXzAuMS4yX3g2NF9lbi1VUy5tc2kKU1ZhSCtUN055Q1VHeldyZ1ozZEt0NWV5QlBaQlh5QUxxZ0R5SVc5Z3lrZFdiaWxETWZiUnBjcXEvSWRjT0Mwc1hzeGQzK080RHgrL0FyOFVsaGgyQnc9PQo=",
-      "url": "https://github.com/Odpp7/Instituto-Ebenezer/releases/download/v0.1.2/Instituto-Ebenezer_0.1.2_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRMnpNWlcvZE12RDZ0MXBUdU9iTkgxODFJUVFqU1JWWndwUlpjOHNQcUhxeHcrRGhyaVFnZVZRYjllcG1kK2luTkZnRzM4V2tnWStQdHhLMExDbG54OE4vdk1zeVRnUFFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgwNzU4NzAwCWZpbGU6SW5zdGl0dXRvLUViZW5lemVyXzAuMS4zX3g2NF9lbi1VUy5tc2kKMkhsMmhtS2xJdDd3ZHRoVXRWa2E2dk5wK2dFWW0zRnVyKzUrbWRSaDQ5ZWZIakZnRzZTdEQ5cWcxa3dqTGkya1BVOTRXWlZnamxQZi9IeDJVSkVFQUE9PQo=",
+      "url": "https://github.com/Odpp7/Instituto-Ebenezer/releases/download/v0.1.3/Instituto-Ebenezer_0.1.3_x64_en-US.msi"
     }
   }
 }
